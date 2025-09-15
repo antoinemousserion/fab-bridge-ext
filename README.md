@@ -1,6 +1,6 @@
-# Fab ↔ Step‑On Bridge Extension
+# Fab Bridge Extension
 
-A Chrome extension that captures entitlements data from `fab.com/library` and allows you to view and export it through the extension popup.
+A Chrome extension that captures entitlements data from `fab.com/library` and allows you to view and export it through the extension popup. Easily customizable for any website.
 
 ## 🎯 Features
 
@@ -23,7 +23,7 @@ A Chrome extension that captures entitlements data from `fab.com/library` and al
 ### First Use
 1. Visit `https://fab.com/library` to start capturing data
 2. Click the extension icon to view captured entitlements
-3. Visit `https://step-on.dev` to use the floating "Fab Library" button
+3. Customize the extension to work with your own website (see Customization section)
 
 ## 🚀 Usage
 
@@ -33,14 +33,14 @@ A Chrome extension that captures entitlements data from `fab.com/library` and al
 - See recent items (last 5)
 - Use action buttons:
   - **Refresh**: Update data from storage
-  - **View All**: Open step-on.dev in new tab
+  - **View All**: Open your custom website in new tab (configurable)
   - **Export JSON**: Download all data as JSON file
   - **Clear**: Delete all captured data
   - **Debug Logs**: View detailed logs for troubleshooting
 
-### On step-on.dev
-- Visit `https://step-on.dev`
-- Click the floating "Fab Library" button (bottom right)
+### On Your Custom Website
+- Visit your configured display website
+- Click the floating data button (bottom right)
 - View all captured entitlements in a detailed panel
 - Use the same action buttons as the popup
 
@@ -51,9 +51,40 @@ A Chrome extension that captures entitlements data from `fab.com/library` and al
 
 ## 🔧 Customization
 
-### Changing Target URLs and Domains
+### Quick Setup for Your Own Website
 
-The extension can be easily customized for different websites. Here are the key files to modify:
+To use this extension with your own website instead of the default setup:
+
+1. **Change the display website URL** in `popup.js` (line ~225):
+   ```javascript
+   chrome.tabs.create({ url: 'https://your-website.com' });
+   ```
+
+2. **Update manifest permissions** in `manifest.json`:
+   ```json
+   "host_permissions": [
+     "https://*.fab.com/*",
+     "https://*.your-website.com/*"
+   ]
+   ```
+
+3. **Update content script matches** in `manifest.json`:
+   ```json
+   {
+     "matches": ["https://*.your-website.com/*"],
+     "js": ["cs_site.js"],
+     "run_at": "document_idle"
+   }
+   ```
+
+4. **Customize the button text** in `cs_site.js`:
+   ```javascript
+   btn.textContent = 'Your Custom Button';
+   ```
+
+### Advanced Customization
+
+For more advanced customization, here are the key files to modify:
 
 #### 1. Update Manifest Permissions (`manifest.json`)
 ```json
@@ -70,6 +101,28 @@ The extension can be easily customized for different websites. Here are the key 
     },
     {
       "matches": ["https://*.your-display-domain.com/*"],
+      "js": ["cs_site.js"],
+      "run_at": "document_idle"
+    }
+  ]
+}
+```
+
+**Example for a custom setup:**
+```json
+{
+  "host_permissions": [
+    "https://*.example.com/*",
+    "https://*.mywebsite.com/*"
+  ],
+  "content_scripts": [
+    {
+      "matches": ["https://*.example.com/data*"],
+      "js": ["cs_fab.js"],
+      "run_at": "document_start"
+    },
+    {
+      "matches": ["https://*.mywebsite.com/*"],
       "js": ["cs_site.js"],
       "run_at": "document_idle"
     }
@@ -102,6 +155,15 @@ if (!data || data.type !== 'YOUR_CUSTOM_RESULTS') return;
 // Update the button text and styling
 btn.textContent = 'Your Custom Button';
 // Modify the data structure handling in renderPanel()
+```
+
+**For popup "View All" button (`popup.js`):**
+```javascript
+// Update the target URL for "View All" button
+function openStepOn() {
+  log('INFO', 'Opening your custom website');
+  chrome.tabs.create({ url: 'https://your-website.com' });
+}
 ```
 
 #### 4. Update Data Structure
@@ -203,7 +265,7 @@ The extension captures entitlements with these fields:
 - `scripting`: Script injection
 - `activeTab`: Access to active tab
 - `tabs`: Tab management
-- `host_permissions`: Access to fab.com and step-on.dev domains
+- `host_permissions`: Access to configured target and display domains
 
 ## 📁 File Structure
 
@@ -211,7 +273,7 @@ The extension captures entitlements with these fields:
 - `popup.html/js` - Popup interface
 - `sw.js` - Service worker (data management)
 - `cs_fab.js` - Content script for fab.com
-- `cs_site.js` - Content script for step-on.dev
+- `cs_site.js` - Content script for your display website
 - `hook.js` - Injected script for API interception
 
 ## 🚨 Important Notes
