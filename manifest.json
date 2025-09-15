@@ -1,0 +1,50 @@
+{
+  "manifest_version": 3,
+  "name": "Fab \u2194 Step\u2011On Bridge",
+  "version": "0.1.0",
+  "description": "Capture /i/library/entitlements/search results on fab.com/library and view them on step-on.dev.",
+  "permissions": [
+    "storage",
+    "scripting",
+    "activeTab",
+    "tabs"
+  ],
+  "host_permissions": [
+    "https://*.fab.com/*",
+    "https://*.step-on.dev/*"
+  ],
+  "background": {
+    "service_worker": "sw.js",
+    "type": "module"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://*.fab.com/library*"
+      ],
+      "js": [
+        "cs_fab.js"
+      ],
+      "run_at": "document_start"
+    },
+    {
+      "matches": [
+        "https://*.step-on.dev/*"
+      ],
+      "js": [
+        "cs_site.js"
+      ],
+      "run_at": "document_idle"
+    }
+  ],
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "Fab Bridge"
+  },
+  "web_accessible_resources": [
+    {
+      "resources": ["hook.js"],
+      "matches": ["https://*.fab.com/*"]
+    }
+  ]
+}
