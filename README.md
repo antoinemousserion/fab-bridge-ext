@@ -27,27 +27,43 @@ A Chrome extension that captures entitlements data from `fab.com/library` and al
 
 ## 🚀 Usage
 
-### Extension Popup
+### How to Use the Extension
+
+#### Step 1: Capture Data from Fab Library
+1. **Go to Fab Library**: Visit `https://fab.com/library` in your browser
+2. **Scroll to Load Data**: Scroll down through the library page until you reach the end
+   - The extension automatically captures data as you scroll
+   - You'll see new items being loaded as you scroll down
+   - Continue scrolling until you've loaded all the items you want to capture
+3. **Data is Automatically Saved**: No manual action needed - the extension captures everything in the background
+
+#### Step 2: View Your Captured Data
+**Option A: Extension Popup**
 - Click the extension icon in Chrome toolbar
 - View statistics: total entitlements, last update time
 - See recent items (last 5)
 - Use action buttons:
   - **Refresh**: Update data from storage
-  - **View All**: Open your custom website in new tab (configurable)
+  - **View All**: Open the detailed view in a new tab
   - **Export JSON**: Download all data as JSON file
   - **Clear**: Delete all captured data
-  - **Debug Logs**: View detailed logs for troubleshooting
 
-### On Your Custom Website
-- Visit your configured display website
-- Click the floating data button (bottom right)
-- View all captured entitlements in a detailed panel
-- Use the same action buttons as the popup
+**Option B: Detailed View on Step-on.dev**
+- Visit `https://step-on.dev` (or your configured display website)
+- Look for the floating "Fab Library" button (bottom right corner)
+- Click the button to open the detailed panel
+- View all captured entitlements with:
+  - High-quality images (click to enlarge)
+  - Clickable titles (opens Fab.com listing)
+  - Seller information
+  - Creation dates
+  - Export and management options
 
-### Automatic Capture
-- Simply browse `https://fab.com/library`
-- The extension automatically captures API responses
-- No manual intervention required
+### Automatic Capture Process
+- The extension automatically intercepts API calls to `/i/library/entitlements/search`
+- Data is captured in real-time as you scroll through the library
+- No manual intervention required - just browse normally
+- All data is stored locally in your browser
 
 ## 🔧 Customization
 

@@ -15,30 +15,12 @@
     errorContainer: document.getElementById('errorContainer'),
     recentItems: document.getElementById('recentItems'),
     emptyState: document.getElementById('emptyState'),
-    debugBtn: document.getElementById('debugBtn'),
-    debugPanel: document.getElementById('debugPanel'),
-    logsContainer: document.getElementById('logsContainer'),
-    clearLogsBtn: document.getElementById('clearLogsBtn')
   };
   
   // État de l'application
   let currentData = [];
   let isLoading = false;
   
-  // Fonction de logging
-  function log(level, message, data = null) {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [${level}] ${message}`;
-    console.log(logMessage, data || '');
-    
-    // Envoyer au service worker pour logging centralisé
-    chrome.runtime.sendMessage({
-      type: 'LOG',
-      level,
-      message,
-      data: data ? JSON.stringify(data) : null
-    }).catch(() => {}); // Ignorer les erreurs de logging
-  }
   
   // Afficher une erreur
   function showError(message) {
@@ -47,7 +29,6 @@
         <strong>Erreur:</strong> ${message}
       </div>
     `;
-    log('ERROR', 'Popup error', { message });
   }
   
   // Masquer les erreurs
@@ -155,7 +136,6 @@
       listContainer.insertAdjacentHTML('beforeend', itemsHtml);
     }
     
-    log('INFO', 'Display updated', { itemCount: currentData.length });
   }
   
   // Charger les données depuis le service worker
@@ -166,7 +146,6 @@
     hideError();
     
     try {
-      log('INFO', 'Loading data from service worker');
       
       const response = await chrome.runtime.sendMessage({ type: 'GET_ENTITLEMENTS' });
       
@@ -177,10 +156,8 @@
       updateStatus(true);
       updateDisplay(response.data);
       
-      log('INFO', 'Data loaded successfully', { count: response.data?.length || 0 });
       
     } catch (error) {
-      log('ERROR', 'Failed to load data', { error: error.message });
       updateStatus(false);
       showError(`Impossible de charger les données: ${error.message}`);
       updateDisplay([]);
@@ -201,7 +178,6 @@
     hideError();
     
     try {
-      log('INFO', 'Clearing all data');
       
       const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ENTITLEMENTS' });
       
@@ -210,10 +186,8 @@
       }
       
       updateDisplay([]);
-      log('INFO', 'Data cleared successfully');
       
     } catch (error) {
-      log('ERROR', 'Failed to clear data', { error: error.message });
       showError(`Impossible de vider les données: ${error.message}`);
     } finally {
       hideLoading();
@@ -222,7 +196,6 @@
   
   // Ouvrir step-on.dev dans un nouvel onglet
   function openStepOn() {
-    log('INFO', 'Opening step-on.dev');
     chrome.tabs.create({ url: 'https://step-on.dev' });
   }
   
@@ -233,7 +206,6 @@
       return;
     }
     
-    log('INFO', 'Exporting data to JSON', { itemCount: currentData.length });
     
     try {
       // Créer l'objet d'export avec métadonnées
@@ -267,93 +239,16 @@
       // Nettoyer l'URL
       URL.revokeObjectURL(url);
       
-      log('INFO', 'JSON export completed successfully');
       hideError();
       
     } catch (error) {
-      log('ERROR', 'Failed to export JSON', { error: error.message });
       showError('Erreur lors de l\'export JSON: ' + error.message);
     }
   }
   
-  // Afficher/masquer le panel de debug
-  function toggleDebugPanel() {
-    const isVisible = elements.debugPanel.style.display !== 'none';
-    elements.debugPanel.style.display = isVisible ? 'none' : 'block';
-    elements.debugBtn.textContent = isVisible ? 'Debug Logs' : 'Masquer Logs';
-    
-    if (!isVisible) {
-      loadDebugLogs();
-    }
-  }
   
-  // Charger les logs de debug
-  async function loadDebugLogs() {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'GET_LOGS' });
-      
-      if (response && response.ok) {
-        const logs = response.logs || [];
-        displayDebugLogs(logs);
-      } else {
-        elements.logsContainer.innerHTML = '<div style="color: #f87171;">Erreur lors du chargement des logs</div>';
-      }
-    } catch (error) {
-      log('ERROR', 'Failed to load debug logs', { error: error.message });
-      elements.logsContainer.innerHTML = '<div style="color: #f87171;">Erreur: ' + error.message + '</div>';
-    }
-  }
   
-  // Afficher les logs de debug
-  function displayDebugLogs(logs) {
-    if (logs.length === 0) {
-      elements.logsContainer.innerHTML = '<div style="color: #888;">Aucun log disponible</div>';
-      return;
-    }
-    
-    const logsHtml = logs
-      .slice(-50) // Afficher les 50 derniers logs
-      .map(log => {
-        const level = log.level || 'INFO';
-        const levelColor = {
-          'ERROR': '#f87171',
-          'WARN': '#fbbf24',
-          'INFO': '#60a5fa',
-          'DEBUG': '#a78bfa'
-        }[level] || '#ccc';
-        
-        const time = new Date(log.timestamp).toLocaleTimeString('fr-FR');
-        const data = log.data ? ' ' + JSON.stringify(log.data) : '';
-        
-        return `<div style="margin-bottom: 4px; border-left: 3px solid ${levelColor}; padding-left: 8px;">
-          <span style="color: #888;">[${time}]</span>
-          <span style="color: ${levelColor}; font-weight: bold;">[${level}]</span>
-          <span style="color: #eaeaea;">${log.message}</span>
-          <span style="color: #888;">${data}</span>
-        </div>`;
-      })
-      .join('');
-    
-    elements.logsContainer.innerHTML = logsHtml;
-    elements.logsContainer.scrollTop = elements.logsContainer.scrollHeight;
-  }
   
-  // Vider les logs de debug
-  async function clearDebugLogs() {
-    try {
-      const response = await chrome.runtime.sendMessage({ type: 'CLEAR_LOGS' });
-      
-      if (response && response.ok) {
-        elements.logsContainer.innerHTML = '<div style="color: #4ade80;">Logs supprimés</div>';
-        log('INFO', 'Debug logs cleared');
-      } else {
-        elements.logsContainer.innerHTML = '<div style="color: #f87171;">Erreur lors de la suppression</div>';
-      }
-    } catch (error) {
-      log('ERROR', 'Failed to clear debug logs', { error: error.message });
-      elements.logsContainer.innerHTML = '<div style="color: #f87171;">Erreur: ' + error.message + '</div>';
-    }
-  }
   
   // Vérifier la connexion au service worker
   async function checkConnection() {
@@ -361,7 +256,6 @@
       const response = await chrome.runtime.sendMessage({ type: 'PING' });
       updateStatus(response && response.ok);
     } catch (error) {
-      log('ERROR', 'Service worker connection failed', { error: error.message });
       updateStatus(false);
     }
   }
@@ -369,7 +263,6 @@
   // Écouter les messages du service worker
   chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
     if (message.type === 'ENTITLEMENTS_UPDATED') {
-      log('INFO', 'Received update notification', { count: message.count });
       loadData(); // Recharger les données
     }
   });
@@ -379,11 +272,8 @@
   elements.clearBtn.addEventListener('click', clearData);
   elements.viewAllBtn.addEventListener('click', openStepOn);
   elements.exportBtn.addEventListener('click', exportToJSON);
-  elements.debugBtn.addEventListener('click', toggleDebugPanel);
-  elements.clearLogsBtn.addEventListener('click', clearDebugLogs);
   
   // Initialisation
-  log('INFO', 'Popup initialized');
   checkConnection();
   loadData();
   

@@ -2,22 +2,64 @@
 (function() {
   'use strict';
   
-  // Fonction de logging
-  function log(level, message, data = null) {
-    const timestamp = new Date().toISOString();
-    const logMessage = `[${timestamp}] [CS-SITE-${level}] ${message}`;
-    console.log(logMessage, data || '');
-    
-    // Envoyer au service worker pour logging centralisé
-    chrome.runtime.sendMessage({
-      type: 'LOG',
-      level,
-      message,
-      data: data ? JSON.stringify(data) : null
-    }).catch(() => {}); // Ignorer les erreurs de logging
-  }
   
-  log('INFO', 'Site content script initialized', { url: location.href });
+  
+  // Fonction pour afficher l'image en popup
+  function showImagePopup(imageUrl) {
+    // Supprimer l'ancien popup s'il existe
+    const existingPopup = document.getElementById('fab-image-popup');
+    if (existingPopup) {
+      existingPopup.remove();
+    }
+    
+    const popup = document.createElement('div');
+    popup.id = 'fab-image-popup';
+    Object.assign(popup.style, {
+      position: 'fixed',
+      top: '0',
+      left: '0',
+      width: '100vw',
+      height: '100vh',
+      background: 'rgba(0, 0, 0, 0.9)',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      zIndex: '2147483648',
+      cursor: 'pointer'
+    });
+    
+    const img = document.createElement('img');
+    img.src = imageUrl;
+    img.style.cssText = `
+      max-width: 90vw;
+      max-height: 90vh;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    `;
+    
+    popup.appendChild(img);
+    document.body.appendChild(popup);
+    
+    // Fermer le popup au clic
+    popup.addEventListener('click', () => {
+      popup.remove();
+    });
+    
+    // Empêcher la propagation du clic sur l'image
+    img.addEventListener('click', (e) => {
+      e.stopPropagation();
+    });
+    
+    // Fermer avec Escape
+    const handleKeydown = (e) => {
+      if (e.key === 'Escape') {
+        popup.remove();
+        document.removeEventListener('keydown', handleKeydown);
+      }
+    };
+    document.addEventListener('keydown', handleKeydown);
+  }
   
   const btn = document.createElement('button');
   btn.textContent = 'Fab Library';
@@ -32,30 +74,25 @@
   document.documentElement.appendChild(btn);
 
   btn.addEventListener('click', async () => {
-    log('INFO', 'Fab Library button clicked');
     
     try {
       const response = await chrome.runtime.sendMessage({ type: 'GET_ENTITLEMENTS' });
       
       if (!response || !response.ok) {
         const errorMsg = response?.error || 'Erreur de communication';
-        log('ERROR', 'Failed to get entitlements', { error: errorMsg });
         alert('Fab Bridge error: ' + errorMsg);
         return;
       }
       
       const data = Array.isArray(response.data) ? response.data : [];
-      log('INFO', 'Retrieved entitlements', { count: data.length });
       renderPanel(data);
       
     } catch (error) {
-      log('ERROR', 'Error getting entitlements', { error: error.message });
       alert('Fab Bridge error: ' + error.message);
     }
   });
 
   function renderPanel(items) {
-    log('INFO', 'Rendering panel', { itemCount: items.length });
     
     // Supprimer l'ancien panel s'il existe
     const existingPanel = document.getElementById('fab-bridge-panel');
@@ -71,6 +108,31 @@
       padding: '12px', borderRadius: '10px', boxShadow: '0 6px 24px rgba(0,0,0,.45)',
       zIndex: 2147483647, fontFamily: 'system-ui, -apple-system, Segoe UI, Roboto, Arial', fontSize: '13px'
     });
+    
+    // Ajouter des styles CSS personnalisés pour la scrollbar
+    const style = document.createElement('style');
+    style.setAttribute('data-fab-bridge', 'true');
+    style.textContent = `
+      #fab-bridge-panel::-webkit-scrollbar {
+        width: 8px;
+      }
+      #fab-bridge-panel::-webkit-scrollbar-track {
+        background: #1a1a1a;
+        border-radius: 4px;
+      }
+      #fab-bridge-panel::-webkit-scrollbar-thumb {
+        background: #404040;
+        border-radius: 4px;
+        border: 1px solid #2a2a2a;
+      }
+      #fab-bridge-panel::-webkit-scrollbar-thumb:hover {
+        background: #525252;
+      }
+      #fab-bridge-panel::-webkit-scrollbar-corner {
+        background: #1a1a1a;
+      }
+    `;
+    document.head.appendChild(style);
     wrap.innerHTML = `
       <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:8px;">
         <div><strong>Fab entitlements</strong> <span style="opacity:.7">(${items.length})</span></div>
@@ -86,36 +148,74 @@
 
     items.forEach(it => {
       // Display a compact card using fields available in sample schema
-      const uid = it.uid || it.id || '';
+      const uid = it.listing.uid || it.id || '';
       const title = it.listing?.title || it.title || '(no title)';
-      const price = it.listing?.startingPrice?.price ?? it.startingPrice?.price ?? '';
-      const currency = it.listing?.startingPrice?.currencyCode ?? it.startingPrice?.currencyCode ?? '';
       const createdAt = it.createdAt || '';
       const seller = it.listing?.user?.sellerName || '';
 
       const card = document.createElement('div');
       card.style.cssText = 'border-top:1px solid #222; padding:8px 0; display:flex; gap:8px; align-items:center;';
 
-      // thumbnail if present
+      // thumbnail if present - sélectionner l'image avec la plus grande taille
       let thumbUrl = null;
       const thumbs = it.listing?.thumbnails?.[0]?.images;
-      if (Array.isArray(thumbs) && thumbs.length) thumbUrl = thumbs[0].url;
+      if (Array.isArray(thumbs) && thumbs.length) {
+        // Trier par taille décroissante et prendre la première (plus grande)
+        const sortedThumbs = thumbs.sort((a, b) => (b.size || 0) - (a.size || 0));
+        thumbUrl = sortedThumbs[0].url;
+      }
       if (thumbUrl) {
         const img = document.createElement('img');
         img.src = thumbUrl;
-        img.width = 64; img.height = 36;
-        img.style.objectFit = 'cover'; img.loading = 'lazy';
+        img.width = 80; img.height = 60;
+        img.style.objectFit = 'cover'; 
+        img.style.borderRadius = '6px';
+        img.style.cursor = 'pointer';
+        img.loading = 'lazy';
+        
+        // Ajouter l'événement de clic pour ouvrir le popup
+        img.addEventListener('click', (e) => {
+          e.preventDefault();
+          e.stopPropagation();
+          showImagePopup(thumbUrl);
+        });
+        
         card.appendChild(img);
+      }
+
+      // Formater la date en dd/mm/yyyy
+      let formattedDate = '';
+      if (createdAt) {
+        try {
+          const date = new Date(createdAt);
+          formattedDate = date.toLocaleDateString('fr-FR', {
+            day: '2-digit',
+            month: '2-digit',
+            year: 'numeric'
+          });
+        } catch (e) {
+          formattedDate = createdAt; // Fallback si la date ne peut pas être parsée
+        }
       }
 
       const meta = document.createElement('div');
       meta.style.flex = '1 1 auto';
+      
+      // Construire l'URL Fab.com avec l'UID
+      const fabUrl = `https://www.fab.com/listings/${uid}`;
+      
       meta.innerHTML = `
-        <div style="display:flex; gap:6px; align-items:center; justify-content:space-between;">
-          <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px;"><strong>${title}</strong></div>
-          <div style="opacity:.8">${price ? (price + ' ' + currency) : ''}</div>
+        <div style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:360px;">
+          <a href="${fabUrl}" target="_blank" rel="noopener noreferrer" 
+             style="color: #eaeaea; text-decoration: none; font-weight: bold; transition: color 0.2s ease;"
+             onmouseover="this.style.color='#3b82f6'" 
+             onmouseout="this.style.color='#eaeaea'">
+            ${title}
+          </a>
         </div>
-        <div style="opacity:.7; font-size:12px">uid: ${uid}${seller ? ' • ' + seller : ''}${createdAt ? ' • ' + createdAt : ''}</div>
+        <div style="opacity:.6; font-size:11px; margin-top:2px;">${uid}</div>
+        ${seller ? `<div style="opacity:.7; font-size:12px; margin-top:2px;">by ${seller}</div>` : ''}
+        ${formattedDate ? `<div style="opacity:.7; font-size:12px; margin-top:2px;">${formattedDate}</div>` : ''}
       `;
       card.appendChild(meta);
       list.appendChild(card);
@@ -125,8 +225,12 @@
     
     // Gestion des événements
     wrap.querySelector('#fab-close').onclick = () => {
-      log('INFO', 'Panel closed');
       wrap.remove();
+      // Nettoyer les styles CSS
+      const existingStyle = document.querySelector('style[data-fab-bridge]');
+      if (existingStyle) {
+        existingStyle.remove();
+      }
     };
     
     wrap.querySelector('#fab-export').onclick = () => {
@@ -138,21 +242,17 @@
         return;
       }
       
-      log('INFO', 'Clearing entitlements');
       
       try {
         const response = await chrome.runtime.sendMessage({ type: 'CLEAR_ENTITLEMENTS' });
         
         if (response && response.ok) {
-          log('INFO', 'Entitlements cleared successfully');
           wrap.remove();
           alert('Fab Bridge: données supprimées');
         } else {
-          log('ERROR', 'Failed to clear entitlements', { error: response?.error });
           alert('Fab Bridge error: ' + (response?.error || 'Erreur inconnue'));
         }
       } catch (error) {
-        log('ERROR', 'Error clearing entitlements', { error: error.message });
         alert('Fab Bridge error: ' + error.message);
       }
     };
@@ -160,7 +260,6 @@
   
   // Fonction d'export JSON
   function exportToJSON(items) {
-    log('INFO', 'Exporting data to JSON', { itemCount: items.length });
     
     try {
       // Créer l'objet d'export avec métadonnées
@@ -194,13 +293,11 @@
       // Nettoyer l'URL
       URL.revokeObjectURL(url);
       
-      log('INFO', 'JSON export completed successfully');
       
       // Afficher une notification de succès
       showNotification('Export JSON réussi !', 'success');
       
     } catch (error) {
-      log('ERROR', 'Failed to export JSON', { error: error.message });
       showNotification('Erreur lors de l\'export JSON: ' + error.message, 'error');
     }
   }
@@ -248,5 +345,4 @@
     }, 3000);
   }
   
-  log('INFO', 'Site content script setup complete');
 })();
