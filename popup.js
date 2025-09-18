@@ -10,6 +10,7 @@
     refreshBtn: document.getElementById('refreshBtn'),
     viewAllBtn: document.getElementById('viewAllBtn'),
     exportBtn: document.getElementById('exportBtn'),
+    copyBtn: document.getElementById('copyBtn'),
     clearBtn: document.getElementById('clearBtn'),
     loading: document.getElementById('loading'),
     errorContainer: document.getElementById('errorContainer'),
@@ -246,6 +247,50 @@
     }
   }
   
+  // Copier les données JSON dans le presse-papier
+  async function copyToClipboard() {
+    if (currentData.length === 0) {
+      showError('Aucune donnée à copier');
+      return;
+    }
+    
+    try {
+      // Créer l'objet d'export avec métadonnées
+      const exportData = {
+        metadata: {
+          exportDate: new Date().toISOString(),
+          version: '1.0',
+          source: 'Fab Bridge Extension',
+          itemCount: currentData.length
+        },
+        entitlements: currentData
+      };
+      
+      // Convertir en JSON formaté
+      const jsonString = JSON.stringify(exportData, null, 2);
+      
+      // Copier dans le presse-papier
+      await navigator.clipboard.writeText(jsonString);
+      
+      // Afficher un message de succès temporaire
+      const originalText = elements.copyBtn.textContent;
+      elements.copyBtn.textContent = 'Copié !';
+      elements.copyBtn.style.background = '#1a4d1a';
+      elements.copyBtn.style.borderColor = '#4ade80';
+      
+      setTimeout(() => {
+        elements.copyBtn.textContent = originalText;
+        elements.copyBtn.style.background = '';
+        elements.copyBtn.style.borderColor = '';
+      }, 2000);
+      
+      hideError();
+      
+    } catch (error) {
+      showError('Erreur lors de la copie: ' + error.message);
+    }
+  }
+  
   
   
   
@@ -272,6 +317,7 @@
   elements.clearBtn.addEventListener('click', clearData);
   elements.viewAllBtn.addEventListener('click', openStepOn);
   elements.exportBtn.addEventListener('click', exportToJSON);
+  elements.copyBtn.addEventListener('click', copyToClipboard);
   
   // Initialisation
   checkConnection();
